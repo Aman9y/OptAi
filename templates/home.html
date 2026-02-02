@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptiAI - Smart Code Enhancement Tool</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/material-darker.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- CodeMirror Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/php/php.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/ruby/ruby.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/rust/rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/htmlmixed/htmlmixed.min.js"></script>
+    <!-- Add language patterns script -->
+    <script src="{{ url_for('static', filename='js/language-patterns.js') }}"></script>
+    <script src="script.js"></script>
+    <!-- Add Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Add Highlight.js for code syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <style>
+        /* Optimization Console Styling */
+        .progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            margin: 5px 0;
+            width: 100%;
+        }
+
+        .progress {
+            height: 100%;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            border-radius: 4px;
+        }
+
+        .performance-metrics {
+            margin-top: 10px;
+        }
+
+        .metric {
+            margin: 8px 0;
+        }
+
+        .apply-optimization {
+            background: var(--secondary);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-top: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.3s;
+        }
+
+        .apply-optimization:hover {
+            background: var(--primary);
+        }
+
+        :root {
+            --primary: #6366f1;
+            --secondary: #4f46e5;
+            --accent: #ec4899;
+            --dark: #0f172a;
+            --light: #f8fafc;
+            --success: #22c55e;
+            --card-bg: #1e293b;
+            --border-color: rgba(148, 163, 184, 0.1);
+            --hover-color: rgba(148, 163, 184, 0.05);
+            --text-secondary: #94a3b8;
+            --gradient-start: #6366f1;
+            --gradient-end: #4f46e5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--dark);
+            color: var(--light);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header and Navigation */
+        header {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            padding: 25px 0 100px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.1;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.3) 1px, transparent 1px),
+                radial-gradient(circle at 50% 70%, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+                radial-gradient(circle at 80% 40%, rgba(255, 255, 255, 0.3) 2px, transparent 2px);
+            background-size: 20px 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .hero {
+            position: relative;
+            text-align: center;
+            margin-top: 30px;
+            padding: 0 20px;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            background: linear-gradient(to right, #fff, #e0e0e0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero p {
+            max-width: 600px;
+            margin: 0 auto 30px;
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 50px;
+            position: relative;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--light);
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            font-size: 1.4rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-link {
+            color: var(--light);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 8px 0;
+            position: relative;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.3s;
+        }
+
+        .nav-link:hover::after {
+            width: 100%;
+            background: var(--accent); /* Use accent color for hover effect */
+            transition: width 0.3s ease; /* Smooth transition */
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            gap: 0;
+            padding: 20px;
+        }
+
+        /* AI Chatbox */
+        .chatbox {
+            min-width: 250px;
+            max-width: 800px;
+            width: 300px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border-color);
+            height: calc(100vh - 40px);
+            max-height: 800px;
+            resize: horizontal;
+        }
+
+        .chatbox-header {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .chatbox-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary) var(--card-bg);
+        }
+
+        .chatbox-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chatbox-messages::-webkit-scrollbar-track {
+            background: var(--card-bg);
+        }
+
+        .chatbox-messages::-webkit-scrollbar-thumb {
+            background-color: var(--primary);
+            border-radius: 3px;
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 85%;
+            word-wrap: break-word;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .message.user {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            align-self: flex-end;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+
+        .message.system {
+            background: var(--card-bg);
+            color: var(--light);
+            align-self: flex-start;
+            border: 1px solid var(--border-color);
+        }
+
+        .message.system pre {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+
+        .message.system code {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+        }
+
+        .message.system p {
+            margin: 8px 0;
+        }
+
+        .message.system ul, .message.system ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .message.system a {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+
+        .chatbox-input {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .chatbox-input input {
+            flex: 1;
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--light);
+            font-size: 14px;
+        }
+
+        .chatbox-input input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .chatbox-input button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .chatbox-input button:hover {
+            background: var(--primary);
+        }
+
+        .chatbox-input button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Add loading animation for messages */
+        .message.loading {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .loading-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            background: var(--light);
+            border-radius: 50%;
+            animation: loading 1s infinite;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes loading {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        /* Code Editor Area */
+        .editor-section {
+            flex: 1;
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            padding: 24px;
+            border: 1px solid var(--border-color);
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .editor-options {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        select, button {
+            background: var(--dark);
+            border: 1px solid var(--border-color);
+            color: var(--light);
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        select:hover {
+            border-color: var(--primary);
+        }
+
+        select option {
+            background: var(--dark);
+            color: var(--light);
+            padding: 8px;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        .action-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            font-weight: 500;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .optimize-btn {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+
+        .explain-btn {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 4px 12px rgba(236, 72, 153, 0.2);
+        }
+
+        .clear-btn {
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .action-btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.1);
+        }
+
+        .action-btn:active {
+            transform: translateY(1px);
+        }
+
+        .action-btn i {
+            font-size: 14px;
+        }
+
+        /* Make the UI more minimalist */
+        .editors-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            height: 500px;
+            margin-top: 20px;
+        }
+
+        .editor-container {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            background: var(--dark);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-label {
+            background: var(--dark);
+            padding: 16px;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .status-badge {
+            background: var(--hover-color);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .CodeMirror {
+            flex: 1; /* Allow the editor to take up remaining space */
+            height: auto !important; /* Override fixed height */
+            font-family: 'Consolas', 'Courier New', monospace;
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Stats Container */
+        .stats-container {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-card {
+            background: var(--dark);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-title {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 8px 0;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-diff {
+            margin-top: 5px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .improved {
+            color: var(--success);
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+
+            .chatbox {
+                width: 100%; /* Full width on smaller screens */
+            }
+
+            .editors-container {
+                grid-template-columns: 1fr;
+            }
+
+            nav {
+                padding: 0 20px;
+            }
+
+            .editor-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .editor-options {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            select {
+                min-width: 120px;
+            }
+        }
+
+        /* Add resizer styles */
+        .resizer {
+            width: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            cursor: col-resize;
+            margin: 0 10px;
+            transition: background 0.2s;
+        }
+
+        .resizer:hover, .resizer.active {
+            background: var(--primary);
+        }
+
+        /* Add copy button styles */
+        .code-block-wrapper {
+            position: relative;
+        }
+
+        .copy-code-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            padding: 4px 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            color: var(--light);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            opacity: 0;
+        }
+
+        .code-block-wrapper:hover .copy-code-btn {
+            opacity: 1;
+        }
+
+        .copy-code-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .copy-code-btn i {
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body class="bg-dark text-white font-sans min-h-screen flex flex-col">
+    <header>
+        <div class="header-bg"></div>
+        <nav>
+            <a href="/" class="logo">
+                <i class="fa-solid fa-code logo-icon"></i>
+                OptiAI
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/features" class="nav-link">Features</a>
+                <a href="/history" class="nav-link">History</a>
+                <a href="/about" class="nav-link">About</a>
+            </div>
+        </nav>
+        <div class="hero">
+            <h1>Optimize Your Code</h1>
+            <p>Transform inefficient code into optimized solutions with smart algorithms and analysis tools</p>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <!-- AI Chatbox -->
+        <div class="chatbox">
+            <div class="chatbox-header">AI Chat</div>
+            <div class="chatbox-messages" id="chatbox-messages">
+                <div class="message system">
+                    Hello! I'm your AI coding assistant. How can I help you today?
+                </div>
+            </div>
+            <div class="chatbox-input">
+                <input type="text" id="chatbox-input" placeholder="Type a message..." onkeypress="if(event.key === 'Enter') sendMessage()">
+                <button id="chatbox-send" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+        <!-- Resizer -->
+        <div class="resizer" id="resizer"></div>
+
+        <!-- Code Editor Section -->
+        <section class="editor-section">
+            <div class="editor-header">
+                <div class="editor-options">
+                    <div id="detected-language" class="flex items-center gap-2 px-4 py-2 bg-opacity-10 rounded-lg">
+                        <i class="fa-solid fa-code"></i>
+                        <span class="text-sm text-gray-400">Language: </span>
+                        <span class="text-sm font-medium">Text</span>
+                    </div>
+                    <select id="theme-selector">
+                        <option value="dracula">Dracula</option>
+                        <option value="monokai">Monokai</option>
+                        <option value="material-darker">Material Dark</option>
+                    </select>
+                </div>
+                <div class="editor-actions">
+                    <button class="action-btn optimize-btn" id="optimize-btn">
+                        <i class="fa-solid fa-bolt"></i> Optimize
+                    </button>
+                    <button class="action-btn explain-btn" id="explain-btn">
+                        <i class="fa-solid fa-book"></i> Explain
+                    </button>
+                    <button class="action-btn clear-btn" id="clear-btn">
+                        <i class="fa-solid fa-trash"></i> Clear
+                    </button>
+                </div>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-file-code" style="color: var(--secondary);"></i>
+                <span>Lines: <span id="line-count">0</span></span>
+            </div>
+            <div class="editors-container">
+                <div class="editor-container">
+                    <div class="editor-label">
+                        <span>Original Code</span>
+                        <span class="status-badge">Ready</span>
+                    </div>
+                    <textarea id="original-code"></textarea>
+                </div>
+                <div class="editor-container">
+                    <div class="editor-label">
+                        <span>Optimized Code</span>
+                        <span class="status-badge" id="output-status">Waiting for input</span>
+                        <i class="fa-solid fa-copy" id="copy-icon" style="cursor: pointer;"></i>
+                    </div>
+                    <textarea id="optimized-code"></textarea>
+                </div>
+            </div>
+
+            <div class="stats-container" id="stats-container">
+                <div class="stat-card">
+                    <div class="stat-title">Code Size</div>
+                    <div class="stat-value">0 KB</div>
+                    <div class="stat-diff">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Complexity</div>
+                    <div class="stat-value">0</div>
+                    <div class="stat-diff">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Performance</div>
+                    <div class="stat-value">0%</div>
+                    <div class="stat-diff">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Quality Score</div>
+                    <div class="stat-value">0/100</div>
+                    <div class="stat-diff">-</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Initialize CodeMirror editors
+        const originalCodeEditor = CodeMirror.fromTextArea(document.getElementById("original-code"), {
+            lineNumbers: true,
+            theme: "dracula",
+            mode: "javascript",
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            lineWrapping: true,
+            tabSize: 2,
+            indentWithTabs: false,
+            smartIndent: true,
+        });
+
+        const optimizedCodeEditor = CodeMirror.fromTextArea(document.getElementById("optimized-code"), {
+            lineNumbers: true,
+            theme: "dracula",
+            mode: "javascript",
+            readOnly: true,
+            lineWrapping: true,
+            tabSize: 2,
+        });
+
+        // Theme selector functionality
+        const themeSelector = document.getElementById("theme-selector");
+        themeSelector.addEventListener("change", function () {
+            const selectedTheme = themeSelector.value;
+            originalCodeEditor.setOption("theme", selectedTheme);
+            optimizedCodeEditor.setOption("theme", selectedTheme);
+        });
+
+        // Language detection function
+        function detectLanguage(code) {
+            if (!code.trim()) return 'Text';
+
+            console.log('Detecting language for code:', code.substring(0, 100) + '...');
+            
+            if (!window.languagePatterns) {
+                console.error('Language patterns not loaded!');
+                return 'Text';
+            }
+
+            const patterns = window.languagePatterns;
+            let maxScore = 0;
+            let detectedLang = 'Text';
+            let totalMatches = 0;
+            let scores = {};
+
+            for (const [lang, data] of Object.entries(patterns)) {
+                // Reset score for this iteration
+                data.score = 0;
+                
+                data.patterns.forEach(pattern => {
+                    const matches = (code.match(pattern.regex) || []).length;
+                    data.score += matches * pattern.weight;
+                    totalMatches += matches;
+                });
+
+                // Add bonus for first line indicators
+                const firstLine = code.split('\n')[0];
+                if (lang === 'python' && (firstLine.startsWith('#!/usr/bin/python') || firstLine.includes('coding: utf-8'))) {
+                    data.score += 5;
+                } else if (lang === 'html' && firstLine.toLowerCase().includes('<!doctype html>')) {
+                    data.score += 5;
+                } else if (lang === 'javascript' && firstLine.includes('use strict')) {
+                    data.score += 3;
+                }
+
+                scores[lang] = data.score;
+
+                // Update max score
+                if (data.score > maxScore) {
+                    maxScore = data.score;
+                    detectedLang = lang;
+                }
+            }
+
+            console.log('Language detection scores:', scores);
+            console.log('Max score:', maxScore);
+            console.log('Total matches:', totalMatches);
+            console.log('Detected language:', detectedLang);
+
+            // Confidence check
+            if (maxScore < 2 || totalMatches === 0) {
+                console.log('Low confidence, returning Text');
+                return 'Text';
+            }
+
+            // Map internal names to display names
+            const displayNames = {
+                python: 'Python',
+                javascript: 'JavaScript',
+                java: 'Java',
+                c: 'C',
+                cpp: 'C++',
+                html: 'HTML',
+                css: 'CSS',
+                text: 'Text'
+            };
+
+            return displayNames[detectedLang] || 'Text';
+        }
+
+        // Update language mode for CodeMirror
+        function updateLanguageMode(language) {
+            const modeMap = {
+                'JavaScript': { name: 'javascript', mime: 'text/javascript' },
+                'Python': { name: 'python', mime: 'text/x-python' },
+                'Java': { name: 'text/x-java', mime: 'text/x-java' },
+                'C': { name: 'text/x-csrc', mime: 'text/x-csrc' },
+                'C++': { name: 'text/x-c++src', mime: 'text/x-c++src' },
+                'HTML': { name: 'htmlmixed', mime: 'text/html' },
+                'CSS': { name: 'css', mime: 'text/css' },
+                'Text': { name: 'javascript', mime: 'text/plain' }
+            };
+
+            const mode = modeMap[language] || modeMap['Text'];
+            originalCodeEditor.setOption('mode', mode.mime);
+            optimizedCodeEditor.setOption('mode', mode.mime);
+        }
+
+        // Update the language display
+        function updateLanguageDisplay(language) {
+            const langColors = {
+                'JavaScript': '#f7df1e',
+                'Python': '#3776ab',
+                'Java': '#007396',
+                'C': '#a8b9cc',
+                'C++': '#00599c',
+                'HTML': '#e34c26',
+                'CSS': '#264de4',
+                'Text': '#6e7681'
+            };
+
+            const langElement = document.getElementById('detected-language');
+            const color = langColors[language] || langColors['Text'];
+            
+            langElement.innerHTML = `
+                <i class="fa-solid fa-code" style="color: ${color}"></i>
+                <span class="text-sm text-gray-400">Language: </span>
+                <span class="text-sm font-medium" style="color: ${color}">${language}</span>
+            `;
+        }
+
+        // Debounce function to limit update frequency
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Update editor on content change
+        originalCodeEditor.on("change", debounce(function() {
+            const code = originalCodeEditor.getValue();
+            const detectedLang = detectLanguage(code);
+            updateLanguageMode(detectedLang);
+            updateLanguageDisplay(detectedLang);
+            
+            const lineCount = originalCodeEditor.lineCount();
+            document.getElementById("line-count").textContent = lineCount;
+            updateStats();
+        }, 300));
+
+        // Update line count
+        originalCodeEditor.on("change", function () {
+            const lineCount = originalCodeEditor.lineCount();
+            document.getElementById("line-count").textContent = lineCount;
+            updateStats();
+        });
+
+        // Function to update stats
+        function updateStats() {
+            const code = originalCodeEditor.getValue();
+            const optimizedCode = optimizedCodeEditor.getValue();
+            
+            // Calculate Code Size with proper formatting
+            function formatSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            const codeSize = new Blob([code]).size;
+            const optimizedSize = new Blob([optimizedCode]).size;
+            document.querySelector('.stat-card:nth-child(1) .stat-value').textContent = formatSize(codeSize);
+            
+            if (optimizedSize > 0 && codeSize > 0) {
+                const sizeDiff = ((optimizedSize - codeSize) / codeSize * 100).toFixed(1);
+                const diffText = sizeDiff > 0 ? `+${sizeDiff}%` : `${sizeDiff}%`;
+                document.querySelector('.stat-card:nth-child(1) .stat-diff').textContent = diffText;
+                document.querySelector('.stat-card:nth-child(1) .stat-diff').className = 
+                    `stat-diff ${sizeDiff < 0 ? 'improved' : ''}`;
+            } else {
+                document.querySelector('.stat-card:nth-child(1) .stat-diff').textContent = '-';
+            }
+
+            // Calculate Complexity Score (0-100)
+            function calculateComplexity(code) {
+                if (!code.trim()) return 0;
+                
+                const lines = code.split('\n').length;
+                const nestingLevel = (code.match(/{/g) || []).length;
+                const functionCount = (code.match(/function\s+\w+\s*\(/g) || []).length;
+                const controlStructures = (code.match(/\b(if|for|while|switch|try|catch)\b/g) || []).length;
+                const longLines = code.split('\n').filter(line => line.trim().length > 80).length;
+                
+                // Weighted scoring
+                const lineScore = Math.min(50, (lines / 100) * 25);  // Max 25 points for lines
+                const nestingScore = Math.min(25, (nestingLevel / 10) * 25);  // Max 25 points for nesting
+                const functionScore = Math.min(15, (functionCount / 5) * 15);  // Max 15 points for functions
+                const controlScore = Math.min(25, (controlStructures / 10) * 25);  // Max 25 points for control structures
+                const longLinesPenalty = Math.min(10, (longLines / lines) * 10);  // Penalty for long lines
+                
+                return Math.min(100, Math.round(lineScore + nestingScore + functionScore + controlScore - longLinesPenalty));
+            }
+            
+            const complexity = calculateComplexity(code);
+            document.querySelector('.stat-card:nth-child(2) .stat-value').textContent = complexity;
+            
+            if (optimizedCode) {
+                const optimizedComplexity = calculateComplexity(optimizedCode);
+                const complexityDiff = optimizedComplexity - complexity;
+                const diffText = complexityDiff > 0 ? `+${complexityDiff}` : `${complexityDiff}`;
+                document.querySelector('.stat-card:nth-child(2) .stat-diff').textContent = diffText;
+                document.querySelector('.stat-card:nth-child(2) .stat-diff').className = 
+                    `stat-diff ${complexityDiff < 0 ? 'improved' : ''}`;
+            }
+
+            // Calculate Performance Score (0-100%)
+            function calculatePerformance(code, complexity) {
+                if (!code.trim()) return 100;
+                
+                const longLines = code.split('\n').filter(line => line.trim().length > 80).length;
+                const deepNesting = (code.match(/{(?:[^{}]*{){2,}}/g) || []).length;  // Matches 3+ levels deep
+                const longFunctions = (code.match(/function\s+\w+\s*\([^)]*\)\s*{[^}]{200,}}/g) || []).length;
+                const regexUsage = (code.match(/\/.*?\/[gimy]*/g) || []).length;
+                const tryCatchBlocks = (code.match(/try\s*{/g) || []).length;
+                
+                // Base score starts at 100 and gets reduced based on issues
+                let score = 100;
+                
+                // Deductions
+                score -= (longLines / code.split('\n').length) * 20;  // Up to 20% off for long lines
+                score -= deepNesting * 5;  // 5% per deep nesting
+                score -= longFunctions * 10;  // 10% per long function
+                score -= regexUsage * 2;  // 2% per regex
+                score -= tryCatchBlocks * 3;  // 3% per try-catch
+                score -= complexity * 0.2;  // Complexity impact
+                
+                return Math.max(0, Math.min(100, Math.round(score)));
+            }
+            
+            const performance = calculatePerformance(code, complexity);
+            document.querySelector('.stat-card:nth-child(3) .stat-value').textContent = performance + '%';
+            
+            if (optimizedCode) {
+                const optimizedPerformance = calculatePerformance(optimizedCode, calculateComplexity(optimizedCode));
+                const performanceDiff = optimizedPerformance - performance;
+                const diffText = performanceDiff > 0 ? `+${performanceDiff}%` : `${performanceDiff}%`;
+                document.querySelector('.stat-card:nth-child(3) .stat-diff').textContent = diffText;
+                document.querySelector('.stat-card:nth-child(3) .stat-diff').className = 
+                    `stat-diff ${performanceDiff > 0 ? 'improved' : ''}`;
+            }
+
+            // Calculate Quality Score (0-100)
+            function calculateQuality(code) {
+                if (!code.trim()) return 100;
+                
+                const lines = code.split('\n');
+                const totalLines = lines.length;
+                
+                // Calculate various quality metrics
+                const commentRatio = (code.match(/\/\/.*$|\/\*[\s\S]*?\*\//gm) || []).length / totalLines;
+                const consistentNaming = (code.match(/[a-z][a-zA-Z]*[A-Z]/g) || []).length;  // Camel case usage
+                const properSpacing = (code.match(/\s{2,}|^\s+/gm) || []).length;  // Indentation and spacing
+                const longLines = lines.filter(line => line.trim().length > 80).length;
+                const codeStyleIssues = (code.match(/[,;]\S|{\S|\S}|\s+$/gm) || []).length;  // Style issues
+                
+                // Start with base score of 100 and apply weighted deductions
+                let score = 100;
+                
+                // Comment ratio (ideal: 15-25%)
+                if (commentRatio < 0.15) score -= 15;
+                else if (commentRatio > 0.25) score -= 5;
+                
+                // Naming conventions
+                score -= Math.min(20, consistentNaming * 2);
+                
+                // Spacing and formatting
+                score -= Math.min(15, properSpacing);
+                
+                // Long lines penalty
+                score -= Math.min(20, (longLines / totalLines) * 20);
+                
+                // Code style issues
+                score -= Math.min(20, codeStyleIssues * 2);
+                
+                return Math.max(0, Math.min(100, Math.round(score)));
+            }
+            
+            const quality = calculateQuality(code);
+            document.querySelector('.stat-card:nth-child(4) .stat-value').textContent = quality + '/100';
+            
+            if (optimizedCode) {
+                const optimizedQuality = calculateQuality(optimizedCode);
+                const qualityDiff = optimizedQuality - quality;
+                const diffText = qualityDiff > 0 ? `+${qualityDiff}` : `${qualityDiff}`;
+                document.querySelector('.stat-card:nth-child(4) .stat-diff').textContent = diffText;
+                document.querySelector('.stat-card:nth-child(4) .stat-diff').className = 
+                    `stat-diff ${qualityDiff > 0 ? 'improved' : ''}`;
+            }
+        }
+
+        // Optimize button functionality
+        document.getElementById("optimize-btn").addEventListener("click", async function() {
+            const code = originalCodeEditor.getValue().trim();
+            if (!code) {
+                alert("Please enter some code to optimize");
+                return;
+            }
+
+            const button = this;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Optimizing...';
+            
+            // Update status with streaming indicator
+            const outputStatus = document.getElementById("output-status");
+            outputStatus.innerHTML = `
+                <span class="animate-pulse">
+                    <i class="fas fa-stream text-blue-400"></i> Streaming
+                </span>
+            `;
+
+            // Clear previous output
+            optimizedCodeEditor.setValue('');
+            
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `question=${encodeURIComponent(code)}`
+                });
+
+                const reader = response.body.getReader();
+                let accumulatedCode = '';
+                
+                // Create a typing effect for the code
+                async function streamResponse() {
+                    while (true) {
+                        const {done, value} = await reader.read();
+                        
+                        if (done) {
+                            outputStatus.innerHTML = `
+                                <span class="text-green-400">
+                                    <i class="fas fa-check"></i> Optimized
+                                </span>
+                            `;
+                            break;
+                        }
+                        
+                        // Decode the stream chunk
+                        const chunk = new TextDecoder().decode(value);
+                        try {
+                            const jsonResponse = JSON.parse(chunk);
+                            if (jsonResponse.answer) {
+                                // Stream each character with a small delay
+                                const newText = jsonResponse.answer;
+                                for (let i = 0; i < newText.length; i++) {
+                                    accumulatedCode += newText[i];
+                                    optimizedCodeEditor.setValue(accumulatedCode);
+                                    optimizedCodeEditor.scrollIntoView({line: optimizedCodeEditor.lineCount()});
+                                    await new Promise(resolve => setTimeout(resolve, 5)); // 5ms delay between characters
+                                }
+                            }
+                        } catch (e) {
+                            // Handle partial JSON chunks
+                            console.log("Partial chunk received");
+                        }
+                    }
+                }
+
+                await streamResponse();
+                updateStats();
+                
+                // Save to history
+                const history = JSON.parse(localStorage.getItem('optimizedCodeHistory') || '[]');
+                history.unshift({
+                    timestamp: new Date().toLocaleString(),
+                    code: accumulatedCode
+                });
+                localStorage.setItem('optimizedCodeHistory', JSON.stringify(history.slice(0, 10)));
+                
+            } catch (error) {
+                optimizedCodeEditor.setValue('Error: ' + error.message);
+                outputStatus.innerHTML = `
+                    <span class="text-red-500">
+                        <i class="fas fa-exclamation-circle"></i> Error
+                    </span>
+                `;
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        });
+
+        // Add streaming indicator styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: .5; }
+            }
+            .animate-pulse {
+                animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+            .text-blue-400 {
+                color: #60A5FA;
+            }
+            .text-green-400 {
+                color: #34D399;
+            }
+            .text-red-500 {
+                color: #EF4444;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Explain button functionality
+        document.getElementById("explain-btn").addEventListener("click", async function() {
+            const code = originalCodeEditor.getValue().trim();
+            if (!code) {
+                alert("Please enter some code to explain");
+                return;
+            }
+
+            const button = this;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Explaining...';
+            document.getElementById("output-status").textContent = "Generating explanation...";
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `question=Explain this code in detail:\n${encodeURIComponent(code)}`
+                });
+
+                const data = await response.json();
+                optimizedCodeEditor.setValue(data.answer);
+                document.getElementById("output-status").textContent = "Explanation ready";
+                
+            } catch (error) {
+                optimizedCodeEditor.setValue('Error: ' + error.message);
+                document.getElementById("output-status").textContent = "Error";
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        });
+
+        // Clear button functionality
+        document.getElementById("clear-btn").addEventListener("click", function() {
+            originalCodeEditor.setValue("");
+            optimizedCodeEditor.setValue("");
+            document.getElementById("output-status").textContent = "Waiting for input";
+            document.getElementById("line-count").textContent = "0";
+            updateStats();
+        });
+
+        // Copy button functionality
+        document.getElementById("copy-icon").addEventListener("click", function() {
+            const code = optimizedCodeEditor.getValue();
+            if (code) {
+                navigator.clipboard.writeText(code).then(() => {
+                    const originalColor = this.style.color;
+                    this.style.color = '#2cb67d';
+                    setTimeout(() => {
+                        this.style.color = originalColor;
+                    }, 1000);
+                });
+            }
+        });
+
+        // Initialize stats without clearing editors
+        updateStats();
+
+        // Chat functionality
+        async function sendMessage() {
+            const input = document.getElementById('chatbox-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Clear input
+            input.value = '';
+
+            // Add user message to chat
+            const chatMessages = document.getElementById('chatbox-messages');
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'message user';
+            userMessageDiv.textContent = message;
+            chatMessages.appendChild(userMessageDiv);
+
+            // Add loading message
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message system loading';
+            loadingDiv.innerHTML = `
+                <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            `;
+            chatMessages.appendChild(loadingDiv);
+
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                // Disable input and button while waiting
+                input.disabled = true;
+                document.getElementById('chatbox-send').disabled = true;
+
+                // Send message to backend
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `message=${encodeURIComponent(message)}`
+                });
+
+                const data = await response.json();
+
+                // Remove loading message
+                chatMessages.removeChild(loadingDiv);
+
+                // Add AI response with markdown rendering and copy buttons
+                const aiMessageDiv = document.createElement('div');
+                aiMessageDiv.className = 'message system';
+                const renderedMarkdown = marked.parse(data.answer);
+                aiMessageDiv.innerHTML = renderedMarkdown;
+                
+                // Apply syntax highlighting and add copy buttons
+                aiMessageDiv.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                    
+                    // Create wrapper and copy button
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'code-block-wrapper';
+                    
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'copy-code-btn';
+                    copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
+                    
+                    // Add click handler directly
+                    copyBtn.addEventListener('click', function() {
+                        const code = block.textContent;
+                        navigator.clipboard.writeText(code)
+                            .then(() => {
+                                copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                                setTimeout(() => {
+                                    copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
+                                }, 2000);
+                            })
+                            .catch(err => {
+                                console.error('Failed to copy:', err);
+                                // Fallback copy mechanism
+                                const textarea = document.createElement('textarea');
+                                textarea.value = code;
+                                textarea.style.position = 'fixed';
+                                textarea.style.opacity = '0';
+                                document.body.appendChild(textarea);
+                                textarea.select();
+                                try {
+                                    document.execCommand('copy');
+                                    copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                                } catch (err) {
+                                    console.error('Fallback failed:', err);
+                                    copyBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Failed!';
+                                }
+                                document.body.removeChild(textarea);
+                                setTimeout(() => {
+                                    copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
+                                }, 2000);
+                            });
+                    });
+                    
+                    // Wrap the code block
+                    const pre = block.parentNode;
+                    const preParent = pre.parentNode;
+                    wrapper.appendChild(pre);
+                    wrapper.appendChild(copyBtn);
+                    preParent.appendChild(wrapper);
+                });
+                
+                chatMessages.appendChild(aiMessageDiv);
+
+            } catch (error) {
+                // Remove loading message
+                chatMessages.removeChild(loadingDiv);
+
+                // Add error message
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'message system';
+                errorDiv.textContent = 'Sorry, I encountered an error. Please try again.';
+                chatMessages.appendChild(errorDiv);
+
+            } finally {
+                // Re-enable input and button
+                input.disabled = false;
+                document.getElementById('chatbox-send').disabled = false;
+                input.focus();
+
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }
+
+        // Add event listener for Enter key in chat input
+        document.getElementById('chatbox-input').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Add resizer functionality
+        const resizer = document.getElementById('resizer');
+        const chatbox = document.querySelector('.chatbox');
+        let isResizing = false;
+        let lastX = 0;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            lastX = e.clientX;
+            resizer.classList.add('active');
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', stopResizing);
+        });
+
+        function handleMouseMove(e) {
+            if (!isResizing) return;
+
+            const deltaX = e.clientX - lastX;
+            const newWidth = chatbox.offsetWidth + deltaX;
+
+            // Check min and max width constraints
+            if (newWidth >= 250 && newWidth <= 800) {
+                chatbox.style.width = `${newWidth}px`;
+                lastX = e.clientX;
+            }
+        }
+
+        function stopResizing() {
+            isResizing = false;
+            resizer.classList.remove('active');
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', stopResizing);
+        }
+
+        // Prevent text selection while resizing
+        document.addEventListener('selectstart', (e) => {
+            if (isResizing) {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>

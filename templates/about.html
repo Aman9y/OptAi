@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - CodeOptimize</title>
+    <!-- CodeMirror CSS and Themes -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/material-darker.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Optimization Console Styling */
+        .progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            margin: 5px 0;
+            width: 100%;
+        }
+
+        .progress {
+            height: 100%;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            border-radius: 4px;
+        }
+
+        .performance-metrics {
+            margin-top: 10px;
+        }
+
+        .metric {
+            margin: 8px 0;
+        }
+
+        .apply-optimization {
+            background: var(--secondary);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-top: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.3s;
+        }
+
+        .apply-optimization:hover {
+            background: var(--primary);
+        }
+
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --accent: #f72585;
+            --dark: #0f0e17;
+            --light: #fffffe;
+            --success: #2cb67d;
+            --card-bg: #16161d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--dark);
+            color: var(--light);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header and Navigation */
+        header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 25px 0 100px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.1;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.3) 1px, transparent 1px),
+                radial-gradient(circle at 50% 70%, rgba(255, 255, 255, 0.2) 1px, transparent 1px),
+                radial-gradient(circle at 80% 40%, rgba(255, 255, 255, 0.3) 2px, transparent 2px);
+            background-size: 20px 20px;
+        }
+
+        .hero {
+            position: relative;
+            text-align: center;
+            margin-top: 30px;
+            padding: 0 20px;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            background: linear-gradient(to right, #fff, #e0e0e0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero p {
+            max-width: 600px;
+            margin: 0 auto 30px;
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 50px;
+            position: relative;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--light);
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            font-size: 1.4rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-link {
+            color: var(--light);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 8px 0;
+            position: relative;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--light);
+            transition: width 0.3s;
+        }
+
+        .nav-link:hover::after {
+            width: 100%;
+            background: var(--accent); /* Use accent color for hover effect */
+            transition: width 0.3s ease; /* Smooth transition */
+        }
+
+        /* About Section */
+        .about-section {
+            max-width: 1200px;
+            margin: -50px auto 50px;
+            background: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            position: relative;
+            z-index: 10;
+            flex: 1;
+        }
+
+        .about-section h2 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: var(--light);
+            text-align: center;
+        }
+
+        .about-section p {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            margin-bottom: 20px;
+            color: var(--light);
+            opacity: 0.9;
+        }
+
+        .about-section h3 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: var(--light);
+        }
+
+        .team-members {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .team-member {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .team-member img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin-bottom: 15px;
+        }
+
+        .team-member h4 {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            color: var(--light);
+        }
+
+        .team-member p {
+            font-size: 0.9rem;
+            color: var(--light);
+            opacity: 0.8;
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .about-section h2 {
+                font-size: 2rem;
+            }
+
+            .about-section h3 {
+                font-size: 1.5rem;
+            }
+
+            .team-members {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-bg"></div>
+        <nav>
+            <a href="/" class="logo">
+                <i class="fa-solid fa-code logo-icon"></i>
+                OptiAI
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/features" class="nav-link">Features</a>
+                <a href="/history" class="nav-link">History</a>
+                <a href="/about" class="nav-link">About</a>
+            </div>
+        </nav>
+        <div class="hero">
+            <h1>About CodeOptimize</h1>
+            <p>Learn more about our mission, features, and the team behind the project.</p>
+        </div>
+    </header>
+
+    <main>
+        <section class="about-section">
+            <h2>Our Mission</h2>
+            <p>
+                At CodeOptimize, our mission is to empower developers by providing smart tools to analyze, optimize, and enhance their code. 
+                We believe that efficient code is the foundation of great software, and our platform is designed to help developers achieve 
+                their full potential.
+            </p>
+
+            <h3>Features</h3>
+            <p>
+                - **Code Optimization**: Automatically refactor and optimize your code for better performance.<br>
+                - **Code Analysis**: Get detailed insights into code complexity, performance, and quality.<br>
+                - **Multi-Language Support**: Works with JavaScript, Python, Java, C++, and more.<br>
+                - **Real-Time Feedback**: Instantly see the impact of your changes with real-time feedback.<br>
+                - **AI-Powered Suggestions**: Leverage AI to get smart suggestions for improving your code.
+            </p>
+
+            <h3>Meet the Team</h3>
+            <div class="team-members">
+                <div class="team-member">
+                    <img src="https://via.placeholder.com/100" alt="Team Member 1">
+                    <h4>AMAN MANDAL</h4>
+                    <p>CSE(AIML)</p>
+                </div>
+                <div class="team-member">
+                    <img src="https://via.placeholder.com/100" alt="Team Member 2">
+                    <h4>YASH DHEKALE</h4>
+                    <p>CSE(AIML)</p>
+                </div>
+                <div class="team-member">
+                    <img src="https://via.placeholder.com/100" alt="Team Member 3">
+                    <h4>KARAN MOURYA</h4>
+                    <p>CSE(AIML)</p>
+                </div>
+                <div class="team-member">
+                    <img src="https://via.placeholder.com/100" alt="Team Member 4">
+                    <h4>SIKANDER PRAJAPATI</h4>
+                    <p>CSE(AIML)</p>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
