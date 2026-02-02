@@ -2,11 +2,13 @@ from flask import Flask, render_template, request, jsonify, url_for
 import requests
 import json
 from database import init_db, save_optimization, get_history
+from code_executor import CodeExecutor
 
 app = Flask(__name__, static_url_path='/static')
 
-# Initialize database
+# Initialize database and code executor
 init_db()
+code_executor = CodeExecutor()
 
 # Ensure static files are not cached during development
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
@@ -94,6 +96,19 @@ def chat():
         
     except Exception as e:
         return jsonify({"answer": f"Error: {str(e)}"})
+
+@app.route('/execute', methods=['POST'])
+def execute_code():
+    try:
+        code = request.form['code']
+        language = request.form['language']
+        input_data = request.form.get('input', '')
+        
+        result = code_executor.execute_code(code, language, input_data)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route('/ask', methods=['POST'])
 def ask():

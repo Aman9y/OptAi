@@ -30,6 +30,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/htmlmixed/htmlmixed.min.js"></script>
     <!-- Add language patterns script -->
     <script src="{{ url_for('static', filename='js/language-patterns.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/complexity-analyzer.js') }}"></script>
     <script src="script.js"></script>
     <!-- Add Marked.js for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -141,6 +142,7 @@
             font-size: 3.5rem;
             margin-bottom: 15px;
             background: linear-gradient(to right, #fff, #e0e0e0);
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             text-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
@@ -572,6 +574,7 @@
             font-weight: 600;
             margin: 8px 0;
             background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -731,6 +734,9 @@
                     <button class="action-btn explain-btn" id="explain-btn">
                         <i class="fa-solid fa-book"></i> Explain
                     </button>
+                    <button class="action-btn" id="run-btn" style="background: var(--success); color: white;">
+                        <i class="fa-solid fa-play"></i> Run
+                    </button>
                     <button class="action-btn clear-btn" id="clear-btn">
                         <i class="fa-solid fa-trash"></i> Clear
                     </button>
@@ -750,11 +756,19 @@
                 </div>
                 <div class="editor-container">
                     <div class="editor-label">
-                        <span>Optimized Code</span>
+                        <span>Output</span>
                         <span class="status-badge" id="output-status">Waiting for input</span>
                         <i class="fa-solid fa-copy" id="copy-icon" style="cursor: pointer;"></i>
                     </div>
                     <textarea id="optimized-code"></textarea>
+                </div>
+            </div>
+            
+            <!-- Input/Output Section -->
+            <div class="io-section" style="margin-top: 20px; display: none;" id="io-section">
+                <div class="input-container" style="background: var(--card-bg); border-radius: 12px; padding: 15px; border: 1px solid var(--border-color);">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Input (optional):</label>
+                    <textarea id="code-input" placeholder="Enter input for your program..." style="width: 100%; height: 80px; background: var(--dark); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; color: var(--light); resize: vertical;"></textarea>
                 </div>
             </div>
 
@@ -777,6 +791,16 @@
                 <div class="stat-card">
                     <div class="stat-title">Quality Score</div>
                     <div class="stat-value">0/100</div>
+                    <div class="stat-diff">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Time Complexity</div>
+                    <div class="stat-value">O(1)</div>
+                    <div class="stat-diff">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Space Complexity</div>
+                    <div class="stat-value">O(1)</div>
                     <div class="stat-diff">-</div>
                 </div>
             </div>
@@ -1102,6 +1126,31 @@
                 document.querySelector('.stat-card:nth-child(4) .stat-diff').className = 
                     `stat-diff ${qualityDiff > 0 ? 'improved' : ''}`;
             }
+
+            // Calculate Time Complexity using advanced analyzer
+            const complexityAnalyzer = new ComplexityAnalyzer();
+            const timeComplexity = complexityAnalyzer.analyzeTimeComplexity(code);
+            document.querySelector('.stat-card:nth-child(5) .stat-value').textContent = timeComplexity;
+            
+            if (optimizedCode) {
+                const optimizedTimeComplexity = complexityAnalyzer.analyzeTimeComplexity(optimizedCode);
+                const improvement = complexityAnalyzer.compareComplexity(timeComplexity, optimizedTimeComplexity);
+                document.querySelector('.stat-card:nth-child(5) .stat-diff').textContent = improvement;
+                document.querySelector('.stat-card:nth-child(5) .stat-diff').className = 
+                    `stat-diff ${improvement === 'Improved' ? 'improved' : ''}`;
+            }
+
+            // Calculate Space Complexity using advanced analyzer
+            const spaceComplexity = complexityAnalyzer.analyzeSpaceComplexity(code);
+            document.querySelector('.stat-card:nth-child(6) .stat-value').textContent = spaceComplexity;
+            
+            if (optimizedCode) {
+                const optimizedSpaceComplexity = complexityAnalyzer.analyzeSpaceComplexity(optimizedCode);
+                const improvement = complexityAnalyzer.compareComplexity(spaceComplexity, optimizedSpaceComplexity);
+                document.querySelector('.stat-card:nth-child(6) .stat-diff').textContent = improvement;
+                document.querySelector('.stat-card:nth-child(6) .stat-diff').className = 
+                    `stat-diff ${improvement === 'Improved' ? 'improved' : ''}`;
+            }
         }
 
         // Optimize button functionality
@@ -1257,12 +1306,80 @@
             }
         });
 
+        // Run button functionality
+        document.getElementById("run-btn").addEventListener("click", async function() {
+            const code = originalCodeEditor.getValue().trim();
+            if (!code) {
+                alert("Please enter some code to run");
+                return;
+            }
+
+            const button = this;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Running...';
+            
+            const outputStatus = document.getElementById("output-status");
+            outputStatus.innerHTML = `
+                <span class="animate-pulse">
+                    <i class="fas fa-cog fa-spin text-blue-400"></i> Executing
+                </span>
+            `;
+
+            // Show input section
+            document.getElementById("io-section").style.display = "block";
+            
+            try {
+                const detectedLang = detectLanguage(code);
+                const input = document.getElementById("code-input").value;
+                
+                const response = await fetch('/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `code=${encodeURIComponent(code)}&language=${encodeURIComponent(detectedLang)}&input=${encodeURIComponent(input)}`
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    optimizedCodeEditor.setValue(result.output || "Program executed successfully (no output)");
+                    outputStatus.innerHTML = `
+                        <span class="text-green-400">
+                            <i class="fas fa-check"></i> Executed
+                        </span>
+                    `;
+                } else {
+                    optimizedCodeEditor.setValue(`Error: ${result.error}`);
+                    outputStatus.innerHTML = `
+                        <span class="text-red-500">
+                            <i class="fas fa-exclamation-circle"></i> Error
+                        </span>
+                    `;
+                }
+                
+            } catch (error) {
+                optimizedCodeEditor.setValue('Execution Error: ' + error.message);
+                outputStatus.innerHTML = `
+                    <span class="text-red-500">
+                        <i class="fas fa-exclamation-circle"></i> Error
+                    </span>
+                `;
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        });
+
         // Clear button functionality
         document.getElementById("clear-btn").addEventListener("click", function() {
             originalCodeEditor.setValue("");
             optimizedCodeEditor.setValue("");
             document.getElementById("output-status").textContent = "Waiting for input";
             document.getElementById("line-count").textContent = "0";
+            document.getElementById("code-input").value = "";
+            document.getElementById("io-section").style.display = "none";
             updateStats();
         });
 
