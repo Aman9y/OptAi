@@ -1,8 +1,15 @@
-from flask import Flask, render_template, request, jsonify, url_for
+from flask import Flask, render_template, request, jsonify, url_for, Response, stream_with_context
 import requests
 import json
-from database import init_db, save_optimization, get_history
+from database import init_db, save_optimization, get_history, save_execution_metric, get_execution_metrics
 from code_executor import CodeExecutor
+
+try:
+    from radon.complexity import cc_visit, cc_rank
+    from radon.metrics import mi_visit, mi_rank
+    RADON_AVAILABLE = True
+except ImportError:
+    RADON_AVAILABLE = False
 
 app = Flask(__name__, static_url_path='/static')
 
@@ -97,18 +104,133 @@ def chat():
     except Exception as e:
         return jsonify({"answer": f"Error: {str(e)}"})
 
+@app.route('/analyze', methods=['POST'])
+def analyze_code():
+    try:
+        code = request.form['code']
+        language = request.form.get('language', 'python').lower()
+
+        if language != 'python' or not RADON_AVAILABLE:
+            return jsonify({"radon": False})
+
+        # Cyclomatic Complexity
+        blocks = cc_visit(code)
+        if blocks:
+            avg_cc = sum(b.complexity for b in blocks) / len(blocks)
+            max_cc = max(b.complexity for b in blocks)
+            rank = cc_rank(max_cc)
+            cc_results = [
+                {"name": b.name, "complexity": b.complexity, "rank": cc_rank(b.complexity)}
+                for b in blocks
+            ]
+        else:
+            avg_cc, max_cc, rank = 1, 1, 'A'
+            cc_results = []
+
+        # Maintainability Index
+        mi_score = mi_visit(code, multi=True)
+        mi_letter = mi_rank(mi_score)
+
+        return jsonify({
+            "radon": True,
+            "cyclomatic": {
+                "average": round(avg_cc, 2),
+                "max": max_cc,
+                "rank": rank,
+                "blocks": cc_results
+            },
+            "maintainability": {
+                "score": round(mi_score, 2),
+                "rank": mi_letter
+            }
+        })
+
+    except SyntaxError as e:
+        return jsonify({"radon": False, "error": f"Syntax error: {str(e)}"})
+    except Exception as e:
+        return jsonify({"radon": False, "error": str(e)})
+
+
 @app.route('/execute', methods=['POST'])
 def execute_code():
     try:
         code = request.form['code']
         language = request.form['language']
         input_data = request.form.get('input', '')
-        
+
         result = code_executor.execute_code(code, language, input_data)
+
+        # Persist metrics
+        save_execution_metric(
+            language=language,
+            execution_time_ms=result.get('execution_time_ms', 0),
+            memory_kb=result.get('memory_kb', 0),
+            code_size_bytes=len(code.encode('utf-8')),
+            success=result.get('success', False)
+        )
+
         return jsonify(result)
-        
+
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    metrics = get_execution_metrics(limit=20)
+    return jsonify(metrics)
+
+@app.route('/stream', methods=['POST'])
+def stream():
+    user_code = request.form.get('question', '')
+    is_explain = request.form.get('mode') == 'explain'
+
+    if is_explain:
+        prompt = create_explanation_prompt(user_code)
+    else:
+        prompt = create_optimization_prompt(user_code)
+
+    def generate():
+        full_response = ''
+        try:
+            response = requests.post(
+                OLLAMA_API_URL,
+                json={
+                    'model': 'qwen2.5-coder',
+                    'prompt': prompt,
+                    'temperature': 0.7 if is_explain else 0.1
+                },
+                stream=True
+            )
+            for line in response.iter_lines():
+                if line:
+                    chunk = json.loads(line)
+                    token = chunk.get('response', '')
+                    if token:
+                        full_response += token
+                        # SSE format: data: <token>\n\n
+                        yield f"data: {json.dumps({'token': token})}\n\n"
+                    if chunk.get('done'):
+                        break
+
+            # Save optimization to DB after full stream
+            if full_response and not is_explain:
+                save_optimization(user_code, full_response, 'auto-detected')
+
+            yield f"data: {json.dumps({'done': True})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no'
+        }
+    )
+
 
 @app.route('/ask', methods=['POST'])
 def ask():
