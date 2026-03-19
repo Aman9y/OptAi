@@ -668,9 +668,65 @@
             background: rgba(255, 255, 255, 0.2);
         }
 
-        .copy-code-btn i {
-            font-size: 12px;
+        /* Dashboard */
+        .dashboard-panel {
+            margin-top: 24px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
         }
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .dashboard-header:hover { background: var(--hover-color); }
+        .dashboard-header h3 { font-size: 1rem; font-weight: 600; }
+        .dashboard-body {
+            padding: 20px;
+            display: none;
+        }
+        .dashboard-body.open { display: block; }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .chart-box {
+            background: var(--dark);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border-color);
+        }
+        .chart-box h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        .chart-box canvas { width: 100% !important; }
+        .last-run-stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .run-stat {
+            flex: 1;
+            background: var(--dark);
+            border-radius: 10px;
+            padding: 14px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+        .run-stat .label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; }
+        .run-stat .value { font-size: 1.4rem; font-weight: 600; color: var(--success); margin-top: 4px; }
+        @media (max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body class="bg-dark text-white font-sans min-h-screen flex flex-col">
@@ -778,20 +834,20 @@
                     <div class="stat-value">0 KB</div>
                     <div class="stat-diff">-</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-title">Complexity</div>
-                    <div class="stat-value">0</div>
-                    <div class="stat-diff">-</div>
+                <div class="stat-card" id="complexity-card">
+                    <div class="stat-title">Cyclomatic Complexity</div>
+                    <div class="stat-value" id="complexity-value">0</div>
+                    <div class="stat-diff" id="complexity-diff">-</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-title">Performance</div>
                     <div class="stat-value">0%</div>
                     <div class="stat-diff">-</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-title">Quality Score</div>
-                    <div class="stat-value">0/100</div>
-                    <div class="stat-diff">-</div>
+                <div class="stat-card" id="quality-card">
+                    <div class="stat-title">Maintainability Index</div>
+                    <div class="stat-value" id="mi-value">-</div>
+                    <div class="stat-diff" id="mi-diff">-</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-title">Time Complexity</div>
@@ -802,6 +858,44 @@
                     <div class="stat-title">Space Complexity</div>
                     <div class="stat-value">O(1)</div>
                     <div class="stat-diff">-</div>
+                </div>
+            </div>
+
+            <!-- Performance Dashboard -->
+            <div class="dashboard-panel" id="dashboard-panel">
+                <div class="dashboard-header" id="dashboard-toggle">
+                    <h3><i class="fa-solid fa-chart-line" style="margin-right:8px;color:var(--primary)"></i>Performance Dashboard</h3>
+                    <i class="fa-solid fa-chevron-down" id="dashboard-chevron"></i>
+                </div>
+                <div class="dashboard-body" id="dashboard-body">
+                    <div class="last-run-stats">
+                        <div class="run-stat">
+                            <div class="label">Last Exec Time</div>
+                            <div class="value" id="dash-exec-time">-</div>
+                        </div>
+                        <div class="run-stat">
+                            <div class="label">Peak Memory</div>
+                            <div class="value" id="dash-memory">-</div>
+                        </div>
+                        <div class="run-stat">
+                            <div class="label">Code Size</div>
+                            <div class="value" id="dash-code-size">-</div>
+                        </div>
+                        <div class="run-stat">
+                            <div class="label">Total Runs</div>
+                            <div class="value" id="dash-total-runs">-</div>
+                        </div>
+                    </div>
+                    <div class="dashboard-grid">
+                        <div class="chart-box">
+                            <h4>Execution Time (ms) — Last 10 Runs</h4>
+                            <canvas id="chart-exec-time" height="160"></canvas>
+                        </div>
+                        <div class="chart-box">
+                            <h4>Memory Usage (KB) — Last 10 Runs</h4>
+                            <canvas id="chart-memory" height="160"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -1032,18 +1126,16 @@
             }
             
             const complexity = calculateComplexity(code);
-            document.querySelector('.stat-card:nth-child(2) .stat-value').textContent = complexity;
-            
+            document.getElementById('complexity-value').textContent = complexity;
+            document.getElementById('complexity-diff').textContent = '-';
+
             if (optimizedCode) {
                 const optimizedComplexity = calculateComplexity(optimizedCode);
                 const complexityDiff = optimizedComplexity - complexity;
-                const diffText = complexityDiff > 0 ? `+${complexityDiff}` : `${complexityDiff}`;
-                document.querySelector('.stat-card:nth-child(2) .stat-diff').textContent = diffText;
-                document.querySelector('.stat-card:nth-child(2) .stat-diff').className = 
-                    `stat-diff ${complexityDiff < 0 ? 'improved' : ''}`;
+                document.getElementById('complexity-diff').textContent = complexityDiff > 0 ? `+${complexityDiff}` : `${complexityDiff}`;
+                document.getElementById('complexity-diff').className = `stat-diff ${complexityDiff < 0 ? 'improved' : ''}`;
             }
 
-            // Calculate Performance Score (0-100%)
             function calculatePerformance(code, complexity) {
                 if (!code.trim()) return 100;
                 
@@ -1116,15 +1208,14 @@
             }
             
             const quality = calculateQuality(code);
-            document.querySelector('.stat-card:nth-child(4) .stat-value').textContent = quality + '/100';
-            
+            document.getElementById('mi-value').textContent = quality + '/100';
+            document.getElementById('mi-diff').textContent = 'Heuristic';
+
             if (optimizedCode) {
                 const optimizedQuality = calculateQuality(optimizedCode);
                 const qualityDiff = optimizedQuality - quality;
-                const diffText = qualityDiff > 0 ? `+${qualityDiff}` : `${qualityDiff}`;
-                document.querySelector('.stat-card:nth-child(4) .stat-diff').textContent = diffText;
-                document.querySelector('.stat-card:nth-child(4) .stat-diff').className = 
-                    `stat-diff ${qualityDiff > 0 ? 'improved' : ''}`;
+                document.getElementById('mi-diff').textContent = qualityDiff > 0 ? `+${qualityDiff}` : `${qualityDiff}`;
+                document.getElementById('mi-diff').className = `stat-diff ${qualityDiff > 0 ? 'improved' : ''}`;
             }
 
             // Calculate Time Complexity using advanced analyzer
@@ -1155,95 +1246,120 @@
             }
         }
 
+        // Radon static analysis for Python code
+        async function analyzeWithRadon(originalCode, optimizedCode) {
+            const lang = detectLanguage(originalCode);
+            if (lang !== 'Python') return;
+
+            try {
+                // Analyze original
+                const res = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `code=${encodeURIComponent(originalCode)}&language=python`
+                });
+                const data = await res.json();
+                if (!data.radon) return;
+
+                // Update Cyclomatic Complexity card with real Radon data
+                const ccRankColors = { A: '#22c55e', B: '#84cc16', C: '#eab308', D: '#f97316', E: '#ef4444', F: '#dc2626' };
+                const ccColor = ccRankColors[data.cyclomatic.rank] || '#6366f1';
+                document.getElementById('complexity-value').textContent = `${data.cyclomatic.average} (${data.cyclomatic.rank})`;
+                document.getElementById('complexity-card').querySelector('.stat-title').textContent = 'Cyclomatic Complexity (Radon)';
+
+                // Update Maintainability Index card with real Radon data
+                const miColor = ccRankColors[data.maintainability.rank] || '#6366f1';
+                document.getElementById('mi-value').textContent = `${data.maintainability.score} (${data.maintainability.rank})`;
+                document.getElementById('quality-card').querySelector('.stat-title').textContent = 'Maintainability Index (Radon)';
+                document.getElementById('mi-diff').textContent = 'Radon analysis';
+                document.getElementById('mi-diff').className = 'stat-diff improved';
+
+                // If optimized code exists, analyze it too for comparison
+                if (optimizedCode) {
+                    const resOpt = await fetch('/analyze', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: `code=${encodeURIComponent(optimizedCode)}&language=python`
+                    });
+                    const dataOpt = await resOpt.json();
+                    if (!dataOpt.radon) return;
+
+                    const ccDiff = (dataOpt.cyclomatic.average - data.cyclomatic.average).toFixed(2);
+                    document.getElementById('complexity-diff').textContent = ccDiff > 0 ? `+${ccDiff}` : `${ccDiff}`;
+                    document.getElementById('complexity-diff').className = `stat-diff ${ccDiff < 0 ? 'improved' : ''}`;
+
+                    const miDiff = (dataOpt.maintainability.score - data.maintainability.score).toFixed(2);
+                    document.getElementById('mi-diff').textContent = miDiff > 0 ? `+${miDiff} MI` : `${miDiff} MI`;
+                    document.getElementById('mi-diff').className = `stat-diff ${miDiff > 0 ? 'improved' : ''}`;
+                }
+            } catch (e) {
+                console.warn('Radon analysis failed:', e);
+            }
+        }
+
         // Optimize button functionality
         document.getElementById("optimize-btn").addEventListener("click", async function() {
             const code = originalCodeEditor.getValue().trim();
-            if (!code) {
-                alert("Please enter some code to optimize");
-                return;
-            }
+            if (!code) { alert("Please enter some code to optimize"); return; }
 
             const button = this;
             const originalText = button.innerHTML;
             button.disabled = true;
             button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Optimizing...';
-            
-            // Update status with streaming indicator
-            const outputStatus = document.getElementById("output-status");
-            outputStatus.innerHTML = `
-                <span class="animate-pulse">
-                    <i class="fas fa-stream text-blue-400"></i> Streaming
-                </span>
-            `;
 
-            // Clear previous output
+            const outputStatus = document.getElementById("output-status");
+            outputStatus.innerHTML = `<span class="animate-pulse"><i class="fas fa-stream text-blue-400"></i> Streaming</span>`;
             optimizedCodeEditor.setValue('');
-            
+
             try {
-                const response = await fetch('/ask', {
+                const response = await fetch('/stream', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `question=${encodeURIComponent(code)}`
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `question=${encodeURIComponent(code)}&mode=optimize`
                 });
 
                 const reader = response.body.getReader();
+                const decoder = new TextDecoder();
                 let accumulatedCode = '';
-                
-                // Create a typing effect for the code
-                async function streamResponse() {
-                    while (true) {
-                        const {done, value} = await reader.read();
-                        
-                        if (done) {
-                            outputStatus.innerHTML = `
-                                <span class="text-green-400">
-                                    <i class="fas fa-check"></i> Optimized
-                                </span>
-                            `;
-                            break;
-                        }
-                        
-                        // Decode the stream chunk
-                        const chunk = new TextDecoder().decode(value);
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // keep incomplete line
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
                         try {
-                            const jsonResponse = JSON.parse(chunk);
-                            if (jsonResponse.answer) {
-                                // Stream each character with a small delay
-                                const newText = jsonResponse.answer;
-                                for (let i = 0; i < newText.length; i++) {
-                                    accumulatedCode += newText[i];
-                                    optimizedCodeEditor.setValue(accumulatedCode);
-                                    optimizedCodeEditor.scrollIntoView({line: optimizedCodeEditor.lineCount()});
-                                    await new Promise(resolve => setTimeout(resolve, 5)); // 5ms delay between characters
-                                }
+                            const payload = JSON.parse(line.slice(6));
+                            if (payload.error) {
+                                optimizedCodeEditor.setValue('Error: ' + payload.error);
+                                break;
                             }
-                        } catch (e) {
-                            // Handle partial JSON chunks
-                            console.log("Partial chunk received");
-                        }
+                            if (payload.done) break;
+                            if (payload.token) {
+                                accumulatedCode += payload.token;
+                                optimizedCodeEditor.setValue(accumulatedCode);
+                                optimizedCodeEditor.scrollIntoView({ line: optimizedCodeEditor.lineCount() - 1 });
+                            }
+                        } catch (_) {}
                     }
                 }
 
-                await streamResponse();
+                outputStatus.innerHTML = `<span class="text-green-400"><i class="fas fa-check"></i> Optimized</span>`;
                 updateStats();
-                
-                // Save to history
+                await analyzeWithRadon(code, accumulatedCode);
+
                 const history = JSON.parse(localStorage.getItem('optimizedCodeHistory') || '[]');
-                history.unshift({
-                    timestamp: new Date().toLocaleString(),
-                    code: accumulatedCode
-                });
+                history.unshift({ timestamp: new Date().toLocaleString(), code: accumulatedCode });
                 localStorage.setItem('optimizedCodeHistory', JSON.stringify(history.slice(0, 10)));
-                
+
             } catch (error) {
                 optimizedCodeEditor.setValue('Error: ' + error.message);
-                outputStatus.innerHTML = `
-                    <span class="text-red-500">
-                        <i class="fas fa-exclamation-circle"></i> Error
-                    </span>
-                `;
+                outputStatus.innerHTML = `<span class="text-red-500"><i class="fas fa-exclamation-circle"></i> Error</span>`;
             } finally {
                 button.disabled = false;
                 button.innerHTML = originalText;
@@ -1275,33 +1391,56 @@
         // Explain button functionality
         document.getElementById("explain-btn").addEventListener("click", async function() {
             const code = originalCodeEditor.getValue().trim();
-            if (!code) {
-                alert("Please enter some code to explain");
-                return;
-            }
+            if (!code) { alert("Please enter some code to explain"); return; }
 
             const button = this;
             const originalText = button.innerHTML;
             button.disabled = true;
             button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Explaining...';
-            document.getElementById("output-status").textContent = "Generating explanation...";
+
+            const outputStatus = document.getElementById("output-status");
+            outputStatus.innerHTML = `<span class="animate-pulse"><i class="fas fa-stream text-blue-400"></i> Streaming</span>`;
+            optimizedCodeEditor.setValue('');
 
             try {
-                const response = await fetch('/ask', {
+                const response = await fetch('/stream', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `question=Explain this code in detail:\n${encodeURIComponent(code)}`
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `question=${encodeURIComponent(code)}&mode=explain`
                 });
 
-                const data = await response.json();
-                optimizedCodeEditor.setValue(data.answer);
-                document.getElementById("output-status").textContent = "Explanation ready";
-                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let accumulated = '';
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        try {
+                            const payload = JSON.parse(line.slice(6));
+                            if (payload.done) break;
+                            if (payload.token) {
+                                accumulated += payload.token;
+                                optimizedCodeEditor.setValue(accumulated);
+                                optimizedCodeEditor.scrollIntoView({ line: optimizedCodeEditor.lineCount() - 1 });
+                            }
+                        } catch (_) {}
+                    }
+                }
+
+                outputStatus.innerHTML = `<span class="text-green-400"><i class="fas fa-check"></i> Explanation ready</span>`;
+
             } catch (error) {
                 optimizedCodeEditor.setValue('Error: ' + error.message);
-                document.getElementById("output-status").textContent = "Error";
+                outputStatus.innerHTML = `<span class="text-red-500"><i class="fas fa-exclamation-circle"></i> Error</span>`;
             } finally {
                 button.disabled = false;
                 button.innerHTML = originalText;
@@ -1349,9 +1488,15 @@
                     optimizedCodeEditor.setValue(result.output || "Program executed successfully (no output)");
                     outputStatus.innerHTML = `
                         <span class="text-green-400">
-                            <i class="fas fa-check"></i> Executed
+                            <i class="fas fa-check"></i> Executed in ${result.execution_time_ms}ms
                         </span>
                     `;
+                    // Auto-open dashboard and refresh
+                    const dashBody = document.getElementById('dashboard-body');
+                    const chevron = document.getElementById('dashboard-chevron');
+                    dashBody.classList.add('open');
+                    chevron.style.transform = 'rotate(180deg)';
+                    loadDashboard();
                 } else {
                     optimizedCodeEditor.setValue(`Error: ${result.error}`);
                     outputStatus.innerHTML = `
@@ -1573,6 +1718,79 @@
             resizer.classList.remove('active');
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', stopResizing);
+        }
+
+        // Dashboard toggle
+        document.getElementById('dashboard-toggle').addEventListener('click', () => {
+            const body = document.getElementById('dashboard-body');
+            const chevron = document.getElementById('dashboard-chevron');
+            body.classList.toggle('open');
+            chevron.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
+            if (body.classList.contains('open')) loadDashboard();
+        });
+
+        function drawBarChart(canvasId, labels, values, color) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const W = canvas.offsetWidth || 400;
+            canvas.width = W;
+            ctx.clearRect(0, 0, W, canvas.height);
+            if (!values.length) return;
+
+            const max = Math.max(...values) || 1;
+            const pad = { top: 10, right: 10, bottom: 30, left: 40 };
+            const chartW = W - pad.left - pad.right;
+            const chartH = canvas.height - pad.top - pad.bottom;
+            const barW = chartW / values.length * 0.6;
+            const gap = chartW / values.length;
+
+            // Y axis
+            ctx.strokeStyle = 'rgba(148,163,184,0.2)';
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px Inter, sans-serif';
+            for (let i = 0; i <= 4; i++) {
+                const y = pad.top + chartH - (i / 4) * chartH;
+                ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + chartW, y); ctx.stroke();
+                ctx.fillText((max * i / 4).toFixed(1), 2, y + 3);
+            }
+
+            // Bars
+            values.forEach((v, i) => {
+                const x = pad.left + i * gap + (gap - barW) / 2;
+                const h = (v / max) * chartH;
+                const y = pad.top + chartH - h;
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.roundRect(x, y, barW, h, 3);
+                ctx.fill();
+                // Label
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillText(labels[i], x + barW / 2 - 8, pad.top + chartH + 18);
+            });
+        }
+
+        async function loadDashboard() {
+            try {
+                const res = await fetch('/dashboard');
+                const metrics = await res.json();
+                if (!metrics.length) return;
+
+                const last = metrics[0];
+                document.getElementById('dash-exec-time').textContent = last.execution_time_ms + ' ms';
+                document.getElementById('dash-memory').textContent = last.memory_kb + ' KB';
+                document.getElementById('dash-code-size').textContent = last.code_size_bytes + ' B';
+                document.getElementById('dash-total-runs').textContent = metrics.length;
+
+                const recent = metrics.slice(0, 10).reverse();
+                const labels = recent.map((_, i) => `#${i + 1}`);
+                const times = recent.map(m => m.execution_time_ms);
+                const mems = recent.map(m => m.memory_kb);
+
+                drawBarChart('chart-exec-time', labels, times, '#6366f1');
+                drawBarChart('chart-memory', labels, mems, '#ec4899');
+            } catch (e) {
+                console.warn('Dashboard load failed:', e);
+            }
         }
 
         // Prevent text selection while resizing
