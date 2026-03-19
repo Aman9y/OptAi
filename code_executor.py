@@ -2,124 +2,158 @@ import subprocess
 import tempfile
 import os
 import json
-from pathlib import Path
+import time
 
 class CodeExecutor:
     def __init__(self):
-        self.supported_languages = {
-            'python': {'extension': '.py', 'command': ['python']},
-            'javascript': {'extension': '.js', 'command': ['node']},
-            'java': {'extension': '.java', 'command': ['javac', 'java']},
-            'c': {'extension': '.c', 'command': ['gcc', '-o']},
-            'cpp': {'extension': '.cpp', 'command': ['g++', '-o']}
-        }
-    
+        self.timeout = 10  # 10 seconds timeout
+        
     def execute_code(self, code, language, input_data=""):
-        """Execute code and return output"""
-        language = language.lower()
-        
-        if language not in self.supported_languages:
-            return {"success": False, "error": f"Language {language} not supported"}
-        
+        """Execute code in specified language"""
         try:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                return self._run_code(code, language, temp_dir, input_data)
+            if language.lower() == 'python':
+                return self._execute_python(code, input_data)
+            elif language.lower() == 'javascript':
+                return self._execute_javascript(code, input_data)
+            elif language.lower() == 'java':
+                return self._execute_java(code, input_data)
+            elif language.lower() in ['c', 'cpp', 'c++']:
+                return self._execute_c_cpp(code, input_data, language)
+            else:
+                return {"success": False, "error": f"Language {language} not supported"}
         except Exception as e:
             return {"success": False, "error": str(e)}
     
-    def _run_code(self, code, language, temp_dir, input_data):
-        lang_config = self.supported_languages[language]
-        file_path = os.path.join(temp_dir, f"code{lang_config['extension']}")
-        
-        # Write code to file
-        with open(file_path, 'w') as f:
+    def _execute_python(self, code, input_data):
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
             f.write(code)
-        
-        try:
-            if language == 'python':
-                return self._run_python(file_path, input_data)
-            elif language == 'javascript':
-                return self._run_javascript(file_path, input_data)
-            elif language == 'java':
-                return self._run_java(file_path, temp_dir, input_data)
-            elif language in ['c', 'cpp']:
-                return self._run_c_cpp(file_path, temp_dir, language, input_data)
-        except subprocess.TimeoutExpired:
-            return {"success": False, "error": "Code execution timed out"}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+            f.flush()
+            
+            try:
+                result = subprocess.run(
+                    ['python', f.name],
+                    input=input_data,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout
+                )
+                
+                return {
+                    "success": result.returncode == 0,
+                    "output": result.stdout,
+                    "error": result.stderr,
+                    "execution_time": time.time()
+                }
+            finally:
+                os.unlink(f.name)
     
-    def _run_python(self, file_path, input_data):
-        result = subprocess.run(
-            ['python', file_path],
-            input=input_data,
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        return self._format_result(result)
+    def _execute_javascript(self, code, input_data):
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
+            f.write(code)
+            f.flush()
+            
+            try:
+                result = subprocess.run(
+                    ['node', f.name],
+                    input=input_data,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout
+                )
+                
+                return {
+                    "success": result.returncode == 0,
+                    "output": result.stdout,
+                    "error": result.stderr,
+                    "execution_time": time.time()
+                }
+            finally:
+                os.unlink(f.name)
     
-    def _run_javascript(self, file_path, input_data):
-        result = subprocess.run(
-            ['node', file_path],
-            input=input_data,
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        return self._format_result(result)
+    def _execute_java(self, code, input_data):
+        # Extract class name from code
+        import re
+        class_match = re.search(r'public\s+class\s+(\w+)', code)
+        if not class_match:
+            return {"success": False, "error": "No public class found"}
+        
+        class_name = class_match.group(1)
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            java_file = os.path.join(temp_dir, f"{class_name}.java")
+            
+            with open(java_file, 'w') as f:
+                f.write(code)
+            
+            # Compile
+            compile_result = subprocess.run(
+                ['javac', java_file],
+                capture_output=True,
+                text=True,
+                timeout=self.timeout
+            )
+            
+            if compile_result.returncode != 0:
+                return {
+                    "success": False,
+                    "error": f"Compilation error: {compile_result.stderr}",
+                    "output": ""
+                }
+            
+            # Execute
+            result = subprocess.run(
+                ['java', '-cp', temp_dir, class_name],
+                input=input_data,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout
+            )
+            
+            return {
+                "success": result.returncode == 0,
+                "output": result.stdout,
+                "error": result.stderr,
+                "execution_time": time.time()
+            }
     
-    def _run_java(self, file_path, temp_dir, input_data):
-        # Compile
-        compile_result = subprocess.run(
-            ['javac', file_path],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
+    def _execute_c_cpp(self, code, input_data, language):
+        suffix = '.c' if language.lower() == 'c' else '.cpp'
+        compiler = 'gcc' if language.lower() == 'c' else 'g++'
         
-        if compile_result.returncode != 0:
-            return {"success": False, "error": compile_result.stderr}
-        
-        # Run
-        class_name = Path(file_path).stem
-        result = subprocess.run(
-            ['java', '-cp', temp_dir, class_name],
-            input=input_data,
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        return self._format_result(result)
-    
-    def _run_c_cpp(self, file_path, temp_dir, language, input_data):
-        exe_path = os.path.join(temp_dir, 'program.exe')
-        compiler = 'gcc' if language == 'c' else 'g++'
-        
-        # Compile
-        compile_result = subprocess.run(
-            [compiler, file_path, '-o', exe_path],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        
-        if compile_result.returncode != 0:
-            return {"success": False, "error": compile_result.stderr}
-        
-        # Run
-        result = subprocess.run(
-            [exe_path],
-            input=input_data,
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        return self._format_result(result)
-    
-    def _format_result(self, result):
-        return {
-            "success": result.returncode == 0,
-            "output": result.stdout,
-            "error": result.stderr if result.returncode != 0 else None
-        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_file = os.path.join(temp_dir, f"main{suffix}")
+            executable = os.path.join(temp_dir, "main.exe")
+            
+            with open(source_file, 'w') as f:
+                f.write(code)
+            
+            # Compile
+            compile_result = subprocess.run(
+                [compiler, source_file, '-o', executable],
+                capture_output=True,
+                text=True,
+                timeout=self.timeout
+            )
+            
+            if compile_result.returncode != 0:
+                return {
+                    "success": False,
+                    "error": f"Compilation error: {compile_result.stderr}",
+                    "output": ""
+                }
+            
+            # Execute
+            result = subprocess.run(
+                [executable],
+                input=input_data,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout
+            )
+            
+            return {
+                "success": result.returncode == 0,
+                "output": result.stdout,
+                "error": result.stderr,
+                "execution_time": time.time()
+            }

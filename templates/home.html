@@ -1134,6 +1134,7 @@
             
             if (optimizedCode) {
                 const optimizedTimeComplexity = complexityAnalyzer.analyzeTimeComplexity(optimizedCode);
+                document.querySelector('.stat-card:nth-child(5) .stat-value').textContent = `${timeComplexity} → ${optimizedTimeComplexity}`;
                 const improvement = complexityAnalyzer.compareComplexity(timeComplexity, optimizedTimeComplexity);
                 document.querySelector('.stat-card:nth-child(5) .stat-diff').textContent = improvement;
                 document.querySelector('.stat-card:nth-child(5) .stat-diff').className = 
@@ -1146,6 +1147,7 @@
             
             if (optimizedCode) {
                 const optimizedSpaceComplexity = complexityAnalyzer.analyzeSpaceComplexity(optimizedCode);
+                document.querySelector('.stat-card:nth-child(6) .stat-value').textContent = `${spaceComplexity} → ${optimizedSpaceComplexity}`;
                 const improvement = complexityAnalyzer.compareComplexity(spaceComplexity, optimizedSpaceComplexity);
                 document.querySelector('.stat-card:nth-child(6) .stat-diff').textContent = improvement;
                 document.querySelector('.stat-card:nth-child(6) .stat-diff').className = 
