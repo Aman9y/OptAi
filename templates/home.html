@@ -711,6 +711,79 @@
             margin-bottom: 12px;
         }
         .chart-box canvas { width: 100% !important; }
+        /* Suggestions Panel */
+        .suggestions-panel {
+            margin-top: 24px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .suggestions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .suggestions-header:hover { background: var(--hover-color); }
+        .suggestions-header h3 { font-size: 1rem; font-weight: 600; }
+        .suggestions-body { padding: 20px; display: none; }
+        .suggestions-body.open { display: block; }
+        .suggestion-card {
+            background: var(--dark);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+        .suggestion-card:last-child { margin-bottom: 0; }
+        .suggestion-num {
+            min-width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: white;
+        }
+        .suggestion-content { flex: 1; }
+        .suggestion-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+        .suggestion-category {
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .cat-Performance { background: rgba(99,102,241,0.2); color: #818cf8; }
+        .cat-Readability { background: rgba(34,197,94,0.2); color: #4ade80; }
+        .cat-Security { background: rgba(239,68,68,0.2); color: #f87171; }
+        .cat-Best\ Practice { background: rgba(234,179,8,0.2); color: #facc15; }
+        .cat-Memory { background: rgba(236,72,153,0.2); color: #f472b6; }
+        .suggestion-desc { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px; }
+        .suggestion-fix { font-size: 0.85rem; color: var(--light); }
+        .suggestion-fix strong { color: var(--success); }
+        .suggestions-loading {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-secondary);
+        }
         .last-run-stats {
             display: flex;
             gap: 16px;
@@ -793,6 +866,9 @@
                     <button class="action-btn" id="run-btn" style="background: var(--success); color: white;">
                         <i class="fa-solid fa-play"></i> Run
                     </button>
+                    <button class="action-btn" id="suggest-btn" style="background: linear-gradient(135deg,#f59e0b,#d97706); color:white; box-shadow:0 4px 12px rgba(245,158,11,0.2);">
+                        <i class="fa-solid fa-lightbulb"></i> Suggest
+                    </button>
                     <button class="action-btn clear-btn" id="clear-btn">
                         <i class="fa-solid fa-trash"></i> Clear
                     </button>
@@ -858,6 +934,17 @@
                     <div class="stat-title">Space Complexity</div>
                     <div class="stat-value">O(1)</div>
                     <div class="stat-diff">-</div>
+                </div>
+            </div>
+
+            <!-- AI Suggestions Panel -->
+            <div class="suggestions-panel" id="suggestions-panel" style="display:none;">
+                <div class="suggestions-header" id="suggestions-toggle">
+                    <h3><i class="fa-solid fa-lightbulb" style="margin-right:8px;color:#f59e0b"></i>AI Optimization Suggestions</h3>
+                    <i class="fa-solid fa-chevron-down" id="suggestions-chevron"></i>
+                </div>
+                <div class="suggestions-body open" id="suggestions-body">
+                    <div id="suggestions-content"></div>
                 </div>
             </div>
 
@@ -1553,128 +1640,85 @@
             const message = input.value.trim();
             if (!message) return;
 
-            // Clear input
             input.value = '';
 
-            // Add user message to chat
             const chatMessages = document.getElementById('chatbox-messages');
             const userMessageDiv = document.createElement('div');
             userMessageDiv.className = 'message user';
             userMessageDiv.textContent = message;
             chatMessages.appendChild(userMessageDiv);
 
-            // Add loading message
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'message system loading';
             loadingDiv.innerHTML = `
                 <div class="loading-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+                    <span></span><span></span><span></span>
                 </div>
             `;
             chatMessages.appendChild(loadingDiv);
-
-            // Scroll to bottom
             chatMessages.scrollTop = chatMessages.scrollHeight;
 
-            try {
-                // Disable input and button while waiting
-                input.disabled = true;
-                document.getElementById('chatbox-send').disabled = true;
+            input.disabled = true;
+            document.getElementById('chatbox-send').disabled = true;
 
-                // Send message to backend
-                const response = await fetch('/chat', {
+            try {
+                // Start async job
+                const startRes = await fetch('/chat', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `message=${encodeURIComponent(message)}`
                 });
+                const { job_id, error: startErr } = await startRes.json();
+                if (startErr) throw new Error(startErr);
 
-                const data = await response.json();
+                // Poll until done
+                let answer = '';
+                while (true) {
+                    await new Promise(r => setTimeout(r, 600));
+                    const pollRes = await fetch(`/job/${job_id}`);
+                    const job = await pollRes.json();
+                    if (job.status === 'done') { answer = job.result; break; }
+                    if (job.status === 'error') throw new Error(job.error);
+                    // still pending — keep polling
+                }
 
-                // Remove loading message
                 chatMessages.removeChild(loadingDiv);
 
-                // Add AI response with markdown rendering and copy buttons
                 const aiMessageDiv = document.createElement('div');
                 aiMessageDiv.className = 'message system';
-                const renderedMarkdown = marked.parse(data.answer);
-                aiMessageDiv.innerHTML = renderedMarkdown;
-                
-                // Apply syntax highlighting and add copy buttons
+                aiMessageDiv.innerHTML = marked.parse(answer || "I'm not sure how to help with that.");
+
                 aiMessageDiv.querySelectorAll('pre code').forEach((block) => {
                     hljs.highlightElement(block);
-                    
-                    // Create wrapper and copy button
                     const wrapper = document.createElement('div');
                     wrapper.className = 'code-block-wrapper';
-                    
                     const copyBtn = document.createElement('button');
                     copyBtn.className = 'copy-code-btn';
                     copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
-                    
-                    // Add click handler directly
                     copyBtn.addEventListener('click', function() {
-                        const code = block.textContent;
-                        navigator.clipboard.writeText(code)
-                            .then(() => {
-                                copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-                                setTimeout(() => {
-                                    copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
-                                }, 2000);
-                            })
-                            .catch(err => {
-                                console.error('Failed to copy:', err);
-                                // Fallback copy mechanism
-                                const textarea = document.createElement('textarea');
-                                textarea.value = code;
-                                textarea.style.position = 'fixed';
-                                textarea.style.opacity = '0';
-                                document.body.appendChild(textarea);
-                                textarea.select();
-                                try {
-                                    document.execCommand('copy');
-                                    copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-                                } catch (err) {
-                                    console.error('Fallback failed:', err);
-                                    copyBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Failed!';
-                                }
-                                document.body.removeChild(textarea);
-                                setTimeout(() => {
-                                    copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
-                                }, 2000);
-                            });
+                        navigator.clipboard.writeText(block.textContent).then(() => {
+                            copyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                            setTimeout(() => { copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy'; }, 2000);
+                        });
                     });
-                    
-                    // Wrap the code block
                     const pre = block.parentNode;
-                    const preParent = pre.parentNode;
                     wrapper.appendChild(pre);
                     wrapper.appendChild(copyBtn);
-                    preParent.appendChild(wrapper);
+                    pre.parentNode ? pre.parentNode.appendChild(wrapper) : aiMessageDiv.appendChild(wrapper);
                 });
-                
+
                 chatMessages.appendChild(aiMessageDiv);
 
             } catch (error) {
-                // Remove loading message
-                chatMessages.removeChild(loadingDiv);
-
-                // Add error message
+                if (loadingDiv.parentNode) chatMessages.removeChild(loadingDiv);
                 const errorDiv = document.createElement('div');
                 errorDiv.className = 'message system';
                 errorDiv.textContent = 'Sorry, I encountered an error. Please try again.';
                 chatMessages.appendChild(errorDiv);
-
             } finally {
-                // Re-enable input and button
                 input.disabled = false;
                 document.getElementById('chatbox-send').disabled = false;
                 input.focus();
-
-                // Scroll to bottom
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
         }
@@ -1792,6 +1836,65 @@
                 console.warn('Dashboard load failed:', e);
             }
         }
+
+        // Suggestions button
+        document.getElementById('suggest-btn').addEventListener('click', async function() {
+            const code = originalCodeEditor.getValue().trim();
+            if (!code) { alert('Please enter some code first'); return; }
+
+            const btn = this;
+            const orig = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analyzing...';
+
+            const panel = document.getElementById('suggestions-panel');
+            const content = document.getElementById('suggestions-content');
+            const chevron = document.getElementById('suggestions-chevron');
+            panel.style.display = 'block';
+            document.getElementById('suggestions-body').classList.add('open');
+            chevron.style.transform = 'rotate(180deg)';
+            content.innerHTML = '<div class="suggestions-loading"><i class="fa-solid fa-spinner fa-spin"></i> Generating suggestions...</div>';
+
+            try {
+                const res = await fetch('/suggestions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `code=${encodeURIComponent(code)}`
+                });
+                const data = await res.json();
+
+                if (data.error || !data.suggestions) {
+                    content.innerHTML = `<div class="suggestions-loading">⚠️ ${data.error || 'No suggestions returned'}</div>`;
+                    return;
+                }
+
+                content.innerHTML = data.suggestions.map((s, i) => `
+                    <div class="suggestion-card">
+                        <div class="suggestion-num">${i + 1}</div>
+                        <div class="suggestion-content">
+                            <div class="suggestion-title">${s.title}</div>
+                            <span class="suggestion-category cat-${s.category.replace(' ', '\ ')}">${s.category}</span>
+                            <div class="suggestion-desc">${s.description}</div>
+                            <div class="suggestion-fix"><strong>Fix:</strong> ${s.fix}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (e) {
+                content.innerHTML = `<div class="suggestions-loading">⚠️ Error: ${e.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = orig;
+            }
+        });
+
+        // Suggestions panel toggle
+        document.getElementById('suggestions-toggle').addEventListener('click', () => {
+            const body = document.getElementById('suggestions-body');
+            const chevron = document.getElementById('suggestions-chevron');
+            body.classList.toggle('open');
+            chevron.style.transform = body.classList.contains('open') ? 'rotate(180deg)' : '';
+        });
 
         // Prevent text selection while resizing
         document.addEventListener('selectstart', (e) => {
