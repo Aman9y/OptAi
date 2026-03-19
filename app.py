@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify, url_for, Response, stream_with_context
 import requests
 import json
+import threading
+import uuid
 from database import init_db, save_optimization, get_history, save_execution_metric, get_execution_metrics
 from code_executor import CodeExecutor
 
@@ -16,6 +18,30 @@ app = Flask(__name__, static_url_path='/static')
 # Initialize database and code executor
 init_db()
 code_executor = CodeExecutor()
+
+# In-memory async job store: {job_id: {status, result, error}}
+_jobs = {}
+_jobs_lock = threading.Lock()
+
+def _run_job(job_id, prompt, temperature):
+    try:
+        response = requests.post(
+            OLLAMA_API_URL,
+            json={'model': 'qwen2.5-coder', 'prompt': prompt, 'temperature': temperature},
+            stream=True
+        )
+        full = ''
+        for line in response.iter_lines():
+            if line:
+                chunk = json.loads(line)
+                full += chunk.get('response', '')
+                if chunk.get('done'):
+                    break
+        with _jobs_lock:
+            _jobs[job_id] = {'status': 'done', 'result': full.strip()}
+    except Exception as e:
+        with _jobs_lock:
+            _jobs[job_id] = {'status': 'error', 'error': str(e)}
 
 # Ensure static files are not cached during development
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
@@ -47,6 +73,19 @@ def create_explanation_prompt(code):
 Provide a clear, detailed explanation of how the code works, its structure, and any potential improvements."""
     return prompt
 
+def create_suggestions_prompt(code):
+    return f"""You are an expert code reviewer. Analyze the following code and return ONLY a JSON array of 3-5 specific, actionable optimization suggestions.
+Each item must be a JSON object with these exact keys:
+- "title": short name (max 6 words)
+- "category": one of ["Performance", "Readability", "Security", "Best Practice", "Memory"]
+- "description": one sentence explaining the issue
+- "fix": one sentence describing the concrete fix
+
+Return ONLY valid JSON array, no markdown, no explanation.
+
+Code:
+{code}"""
+
 def create_chat_prompt(message):
     prompt = f"""You are a helpful AI coding assistant. Help the user with their coding questions and provide clear, concise answers.
 Previous context: The user is working with a code optimization website.
@@ -74,35 +113,63 @@ def history():
     db_history = get_history()
     return render_template('history.html', history=db_history)
 
+@app.route('/suggestions', methods=['POST'])
+def suggestions():
+    try:
+        code = request.form.get('code', '')
+        if not code.strip():
+            return jsonify({"error": "No code provided"})
+
+        prompt = create_suggestions_prompt(code)
+        response = requests.post(
+            OLLAMA_API_URL,
+            json={'model': 'qwen2.5-coder', 'prompt': prompt, 'temperature': 0.3},
+            stream=True
+        )
+        full = ''
+        for line in response.iter_lines():
+            if line:
+                chunk = json.loads(line)
+                full += chunk.get('response', '')
+                if chunk.get('done'):
+                    break
+
+        # Extract JSON array from response
+        start, end = full.find('['), full.rfind(']')
+        if start == -1 or end == -1:
+            return jsonify({"error": "Could not parse suggestions"})
+        return jsonify({"suggestions": json.loads(full[start:end+1])})
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
 @app.route('/chat', methods=['POST'])
 def chat():
     try:
         message = request.form['message']
         prompt = create_chat_prompt(message)
-        
-        # Send request to Ollama API
-        response = requests.post(
-            OLLAMA_API_URL, 
-            json={
-                "model": "qwen2.5-coder",
-                "prompt": prompt,
-                "temperature": 0.7
-            },
-            stream=True
-        )
-        
-        # Handle streaming response
-        full_response = ""
-        for line in response.iter_lines():
-            if line:
-                json_response = json.loads(line)
-                if 'response' in json_response:
-                    full_response += json_response['response']
-        
-        return jsonify({"answer": full_response.strip() if full_response else "I'm not sure how to help with that."})
-        
+        job_id = str(uuid.uuid4())
+        with _jobs_lock:
+            _jobs[job_id] = {'status': 'pending'}
+        t = threading.Thread(target=_run_job, args=(job_id, prompt, 0.7), daemon=True)
+        t.start()
+        return jsonify({'job_id': job_id})
     except Exception as e:
-        return jsonify({"answer": f"Error: {str(e)}"})
+        return jsonify({'error': str(e)})
+
+
+@app.route('/job/<job_id>', methods=['GET'])
+def job_status(job_id):
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if not job:
+        return jsonify({'status': 'not_found'}), 404
+    # Clean up completed jobs after retrieval
+    if job['status'] in ('done', 'error'):
+        with _jobs_lock:
+            _jobs.pop(job_id, None)
+    return jsonify(job)
 
 @app.route('/analyze', methods=['POST'])
 def analyze_code():
